@@ -1,4 +1,4 @@
-module underwater-sensors
+module github.com/jenyasd209/fake-sensors
 
 go 1.19
 
