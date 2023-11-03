@@ -1,10 +1,10 @@
-package api
+package response
 
-type GroupsResponse struct {
+type Groups struct {
 	Groups []string `json:"groups"`
 }
 
-type AvgResponse struct {
+type Average struct {
 	Average string `json:"average"`
 }
 
@@ -13,10 +13,10 @@ type Species struct {
 	Count string `json:"count"`
 }
 
-type SpeciesResponse struct {
+type SpeciesList struct {
 	Species []*Species `json:"species"`
 }
 
-type ValueResponse struct {
+type Value struct {
 	Value string `json:"value"`
 }
