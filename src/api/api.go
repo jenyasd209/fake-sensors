@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"underwater-sensors/src/db"
+	"github.com/jenyasd209/fake-sensors/src/db"
 
 	"github.com/gin-gonic/gin"
 )

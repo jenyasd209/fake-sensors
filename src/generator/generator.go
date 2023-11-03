@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"underwater-sensors/src/model"
+	"github.com/jenyasd209/fake-sensors/src/model"
 )
 
 const (
