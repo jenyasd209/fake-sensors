@@ -3,6 +3,7 @@ package routes
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/jenyasd209/fake-sensors/src/api/response"
 	"github.com/jenyasd209/fake-sensors/src/storage"
@@ -18,7 +19,12 @@ const (
 
 func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 	routes.GET(groupRouteGroup, func(context *gin.Context) {
-		groupRecords := s.GetAllGroups()
+		groupRecords, err := s.GetAllGroups()
+		if err != nil {
+			context.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
 		groups := make([]string, len(groupRecords))
 
 		for i, record := range groupRecords {
@@ -56,9 +62,14 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 	})
 
 	groups.GET("/species", func(context *gin.Context) {
-		groupName := context.Param(groupNameParam)
+		species, err := getSpecies(s, context.Param(groupNameParam), 0)
+		if err != nil {
+			context.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
 		context.JSON(http.StatusOK, response.SpeciesList{
-			Species: getSpecies(s, groupName, 0),
+			Species: species,
 		})
 	})
 
@@ -70,15 +81,47 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 			return
 		}
 
-		groupName := context.Param(groupNameParam)
+		opts := make([]storage.ConditionOption, 0, 2)
+		fromQ := context.DefaultQuery("from", "")
+		if fromQ != "" {
+			from, err := time.Parse(time.UnixDate, context.DefaultQuery("from", ""))
+			if err != nil {
+				context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format"})
+				return
+			}
+
+			opts = append(opts, storage.WithFrom(from))
+		}
+
+		tillQ := context.DefaultQuery("from", "")
+		if tillQ != "" {
+			till, err := time.Parse(time.UnixDate, context.DefaultQuery("till", ""))
+			if err != nil {
+				context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format"})
+				return
+			}
+
+			opts = append(opts, storage.WithTill(till))
+		}
+
+		species, err := getSpecies(s, context.Param(groupNameParam), count, opts...)
+		if err != nil {
+			context.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
 		context.JSON(http.StatusOK, response.SpeciesList{
-			Species: getSpecies(s, groupName, count),
+			Species: species,
 		})
 	})
 }
 
-func getSpecies(storage *storage.Storage, groupName string, limit int) []*response.Species {
-	fishesRecords := storage.GetSpecies(groupName, limit)
+func getSpecies(storage *storage.Storage, groupName string, limit int, opts ...storage.ConditionOption) ([]*response.Species, error) {
+	fishesRecords, err := storage.GetSpecies(groupName, limit, opts...)
+	if err != nil {
+		return nil, err
+	}
+
 	species := make([]*response.Species, 0, len(fishesRecords))
 	for _, fish := range fishesRecords {
 		species = append(species, &response.Species{
@@ -87,5 +130,5 @@ func getSpecies(storage *storage.Storage, groupName string, limit int) []*respon
 		})
 	}
 
-	return species
+	return species, nil
 }

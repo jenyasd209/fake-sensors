@@ -17,14 +17,27 @@ func RegisterTemperatureRoutes(routes *gin.Engine, storage *storage.Storage) {
 
 	groups := routes.Group(temperatureRouteGroup)
 	groups.GET("/min", func(context *gin.Context) {
+		minT, err := storage.GetMinTemperatureByRegion(parseCoordinates(context)...)
+		if err != nil {
+			context.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
 		context.JSON(http.StatusOK, response.Value{
-			Value: strconv.FormatFloat(storage.GetMinTemperatureByRegion(parseCoordinates(context)...), 'f', 2, 64),
+			Value: strconv.FormatFloat(minT, 'f', 2, 64),
 		})
 	})
 
 	groups.GET("/max", func(context *gin.Context) {
+		maxT, err := storage.GetMinTemperatureByRegion(parseCoordinates(context)...)
+		if err != nil {
+			context.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
 		context.JSON(http.StatusOK, response.Value{
-			Value: strconv.FormatFloat(storage.GetMaxTemperatureByRegion(parseCoordinates(context)...), 'f', 2, 64),
+
+			Value: strconv.FormatFloat(maxT, 'f', 2, 64),
 		})
 	})
 }
