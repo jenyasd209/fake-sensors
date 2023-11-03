@@ -36,7 +36,7 @@ type Sensor struct {
 
 	X, Y, Z float64
 
-	DataOutputRate int64
+	DataOutputRate time.Duration
 }
 
 type Temperature struct {
@@ -44,7 +44,6 @@ type Temperature struct {
 
 	SensorId    uint64
 	Temperature float64
-	Date        time.Time
 }
 
 type Transparency struct {
@@ -52,5 +51,4 @@ type Transparency struct {
 
 	SensorId     uint64
 	Transparency uint8
-	Date         time.Time
 }

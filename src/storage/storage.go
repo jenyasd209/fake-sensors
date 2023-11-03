@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -129,34 +130,44 @@ func WithZMax(zMax float64) CoordinateOption {
 	}
 }
 
-func (s *Storage) GetAllGroups() []*Group {
-	var results []*Group
-	s.db.Find(GroupTable)
-
-	return results
-}
-
-func (s *Storage) GetSpecies(group string, limit int) []*Fish {
-	var results []*Fish
-	res := s.db.Table(FishTable).
-		Select(FishTable+".*").
-		Joins("LEFT JOIN "+FishTable+" ON "+FishTable+".group_id = "+GroupTable+".id").
-		Where(GroupTable+".name IS NOT NULL").
-		Where(GroupTable+".name = ?", group)
-
-	if limit > 0 {
-		res.Limit(limit)
+func (s *Storage) GetAllGroups() ([]*Group, error) {
+	var groups []*Group
+	res := s.db.Find(GroupTable)
+	if res.Error != nil {
+		return nil, res.Error
 	}
 
-	res.Find(&results)
-	return results
+	return groups, nil
 }
 
-func (s *Storage) GetMaxTemperatureByRegion(opts ...CoordinateOption) float64 {
+func (s *Storage) GetSpecies(group string, limit int, opts ...ConditionOption) ([]*Fish, error) {
+	var fishes []*Fish
+	tx := s.db.Table(FishTable).
+		Select(FishTable+".*").
+		Joins("LEFT JOIN "+FishTable+" ON "+FishTable+".group_id = "+GroupTable+".id").
+		Where(GroupTable+".name = ?", group)
+
+	for _, opt := range opts {
+		opt(FishTable, "created_at", tx)
+	}
+
+	if limit > 0 {
+		tx.Limit(limit)
+	}
+
+	res := tx.Find(&fishes)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	return fishes, nil
+}
+
+func (s *Storage) GetMaxTemperatureByRegion(opts ...CoordinateOption) (float64, error) {
 	return s.getTemperatureByRegion(maxTemperature, opts...)
 }
 
-func (s *Storage) GetMinTemperatureByRegion(opts ...CoordinateOption) float64 {
+func (s *Storage) GetMinTemperatureByRegion(opts ...CoordinateOption) (float64, error) {
 	return s.getTemperatureByRegion(minTemperature, opts...)
 }
 
@@ -174,7 +185,10 @@ func (s *Storage) GetSensorAvgTemperature(groupName string, indexInGroup int, co
 		opt(TemperatureTable, "created_at", tx)
 	}
 
-	tx.Find(&avg)
+	res := tx.Find(&avg)
+	if res.Error != nil {
+		return 0, res.Error
+	}
 
 	return avg, nil
 }
@@ -186,6 +200,36 @@ func (s *Storage) GetAvgTemperature(ctx context.Context) (float64, error) {
 func (s *Storage) GetAvgTransparency(ctx context.Context) (uint8, error) {
 	avg, err := s.getCachedAvg(ctx, transparencyKey, TransparencyTable, "transparency")
 	return uint8(avg), err
+}
+
+func (s *Storage) CreateGroup(group *Group) error {
+	result := s.db.Create(group)
+
+	return result.Error
+}
+
+func (s *Storage) CreateSensor(sensor *Sensor) error {
+	result := s.db.Create(sensor)
+
+	return result.Error
+}
+
+func (s *Storage) CreateTemperature(temperature *Temperature) error {
+	result := s.db.Create(temperature)
+
+	return result.Error
+}
+
+func (s *Storage) CreateTransparency(transparency *Transparency) error {
+	result := s.db.Create(transparency)
+
+	return result.Error
+}
+
+func (s *Storage) CreateFish(fish *Fish) error {
+	result := s.db.Create(fish)
+
+	return result.Error
 }
 
 func (s *Storage) getCachedAvg(ctx context.Context, key, table, field string) (float64, error) {
@@ -209,26 +253,25 @@ func (s *Storage) getCachedAvg(ctx context.Context, key, table, field string) (f
 
 func (s *Storage) getAvg(table, field string) (float64, error) {
 	var average float64
-	result := s.db.Table(table).Select("AVG(" + field + ") as average").Row()
-	err := result.Scan(&average)
-	if err != nil {
-		return 0, err
+	res := s.db.Table(table).Select("AVG("+field+") as average").Pluck("AVG(value)", &average)
+	if res.Error != nil {
+		return 0, res.Error
 	}
 
-	return average, err
+	return average, nil
 }
 
-func (s *Storage) getTemperatureByRegion(v uint8, opts ...CoordinateOption) float64 {
+func (s *Storage) getTemperatureByRegion(v uint8, opts ...CoordinateOption) (float64, error) {
 	exp := ""
 	if v == minTemperature {
 		exp = "MIN"
 	} else if v == maxTemperature {
 		exp = "MAX"
 	} else {
-		return 0
+		return 0, errors.New("bad request")
 	}
 
-	var results float64
+	var t float64
 	tx := s.db.Table(SensorTable).
 		Select(exp + "(" + TemperatureTable + ".temperature) as average").
 		Joins("LEFT JOIN " + TemperatureTable + " ON " + TemperatureTable + ".sensor_id = " + SensorTable + ".id")
@@ -237,6 +280,10 @@ func (s *Storage) getTemperatureByRegion(v uint8, opts ...CoordinateOption) floa
 		opt(tx)
 	}
 
-	tx.Find(&results)
-	return results
+	res := tx.Find(&t)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+
+	return t, nil
 }
