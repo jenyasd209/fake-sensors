@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jenyasd209/fake-sensors/src/db"
+	"github.com/jenyasd209/fake-sensors/src/storage"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,14 +22,14 @@ const (
 var pattern = regexp.MustCompile("([a-zA-Z]+)([0-9]+)")
 
 type Server struct {
-	routes *gin.Engine
-	db     *db.Database
+	routes  *gin.Engine
+	storage *storage.Storage
 }
 
-func DefaultApiServer(db *db.Database) *Server {
+func DefaultApiServer(storage *storage.Storage) *Server {
 	server := &Server{
-		routes: gin.Default(),
-		db:     db,
+		routes:  gin.Default(),
+		storage: storage,
 	}
 	server.initRoutes()
 
@@ -44,7 +44,7 @@ func (s *Server) initRoutes() {
 
 func (s *Server) initGroupRoutes() {
 	s.routes.GET(groupRouteGroup, func(context *gin.Context) {
-		groupRecords := s.db.GetAllGroups()
+		groupRecords := s.storage.GetAllGroups()
 		groups := make([]string, len(groupRecords))
 
 		for i, record := range groupRecords {
@@ -59,7 +59,7 @@ func (s *Server) initGroupRoutes() {
 	groups := s.routes.Group(groupRouteGroup)
 
 	groups.GET("/transparency/average", func(context *gin.Context) {
-		avg, err := s.db.GetAvgTransparency(context)
+		avg, err := s.storage.GetAvgTransparency(context)
 		if err != nil {
 			context.AbortWithError(http.StatusInternalServerError, err)
 			return
@@ -71,7 +71,7 @@ func (s *Server) initGroupRoutes() {
 	})
 
 	groups.GET("/temperature/average", func(context *gin.Context) {
-		avg, err := s.db.GetAvgTemperature(context)
+		avg, err := s.storage.GetAvgTemperature(context)
 		if err != nil {
 			context.AbortWithError(http.StatusInternalServerError, err)
 			return
@@ -85,7 +85,7 @@ func (s *Server) initGroupRoutes() {
 	groups.GET("/species", func(context *gin.Context) {
 		groupName := context.Param(groupNameParam)
 		context.JSON(http.StatusOK, SpeciesResponse{
-			Species: getSpecies(s.db, groupName, 0),
+			Species: getSpecies(s.storage, groupName, 0),
 		})
 	})
 
@@ -99,7 +99,7 @@ func (s *Server) initGroupRoutes() {
 
 		groupName := context.Param(groupNameParam)
 		context.JSON(http.StatusOK, SpeciesResponse{
-			Species: getSpecies(s.db, groupName, count),
+			Species: getSpecies(s.storage, groupName, count),
 		})
 	})
 }
@@ -110,13 +110,13 @@ func (s *Server) initTemperatureRoutes() {
 	groups := s.routes.Group(temperatureRouteGroup)
 	groups.GET("/min", func(context *gin.Context) {
 		context.JSON(http.StatusOK, ValueResponse{
-			Value: strconv.FormatFloat(s.db.GetMinTemperatureByRegion(parseCoordinates(context)...), 'f', 2, 64),
+			Value: strconv.FormatFloat(s.storage.GetMinTemperatureByRegion(parseCoordinates(context)...), 'f', 2, 64),
 		})
 	})
 
 	groups.GET("/max", func(context *gin.Context) {
 		context.JSON(http.StatusOK, ValueResponse{
-			Value: strconv.FormatFloat(s.db.GetMaxTemperatureByRegion(parseCoordinates(context)...), 'f', 2, 64),
+			Value: strconv.FormatFloat(s.storage.GetMaxTemperatureByRegion(parseCoordinates(context)...), 'f', 2, 64),
 		})
 	})
 }
@@ -135,7 +135,7 @@ func (s *Server) initSensorRoutes() {
 			return
 		}
 
-		opts := make([]db.ConditionOption, 0, 2)
+		opts := make([]storage.ConditionOption, 0, 2)
 		fromQ := context.DefaultQuery("from", "")
 		if fromQ != "" {
 			from, err := time.Parse(time.UnixDate, context.DefaultQuery("from", ""))
@@ -144,7 +144,7 @@ func (s *Server) initSensorRoutes() {
 				return
 			}
 
-			opts = append(opts, db.WithFrom(from))
+			opts = append(opts, storage.WithFrom(from))
 		}
 
 		tillQ := context.DefaultQuery("from", "")
@@ -155,10 +155,10 @@ func (s *Server) initSensorRoutes() {
 				return
 			}
 
-			opts = append(opts, db.WithTill(till))
+			opts = append(opts, storage.WithTill(till))
 		}
 
-		avg, err := s.db.GetSensorAvgTemperature(letter, index, opts...)
+		avg, err := s.storage.GetSensorAvgTemperature(letter, index, opts...)
 		if err != nil {
 			context.AbortWithError(http.StatusInternalServerError, err)
 			return
@@ -170,8 +170,8 @@ func (s *Server) initSensorRoutes() {
 	})
 }
 
-func getSpecies(db *db.Database, groupName string, limit int) []*Species {
-	fishesRecords := db.GetSpecies(groupName, limit)
+func getSpecies(storage *storage.Storage, groupName string, limit int) []*Species {
+	fishesRecords := storage.GetSpecies(groupName, limit)
 	species := make([]*Species, 0, len(fishesRecords))
 	for _, fish := range fishesRecords {
 		species = append(species, &Species{
@@ -183,34 +183,34 @@ func getSpecies(db *db.Database, groupName string, limit int) []*Species {
 	return species
 }
 
-func parseCoordinates(ctx *gin.Context) []db.CoordinateOption {
-	opts := make([]db.CoordinateOption, 0, 6)
+func parseCoordinates(ctx *gin.Context) []storage.CoordinateOption {
+	opts := make([]storage.CoordinateOption, 0, 6)
 
 	xMin := ctx.Query("xMin")
 	if xMin != "" {
-		opts = append(opts, db.WithXMin(ctx.GetFloat64("xMin")))
+		opts = append(opts, storage.WithXMin(ctx.GetFloat64("xMin")))
 	}
 	xMax := ctx.Query("xMax")
 	if xMax != "" {
-		opts = append(opts, db.WithXMax(ctx.GetFloat64("xMax")))
+		opts = append(opts, storage.WithXMax(ctx.GetFloat64("xMax")))
 	}
 
 	yMin := ctx.Query("yMin")
 	if yMin != "" {
-		opts = append(opts, db.WithYMin(ctx.GetFloat64("yMin")))
+		opts = append(opts, storage.WithYMin(ctx.GetFloat64("yMin")))
 	}
 	yMax := ctx.Query("yMax")
 	if yMax != "" {
-		opts = append(opts, db.WithYMax(ctx.GetFloat64("yMax")))
+		opts = append(opts, storage.WithYMax(ctx.GetFloat64("yMax")))
 	}
 
 	zMin := ctx.Query("zMin")
 	if zMin != "" {
-		opts = append(opts, db.WithZMin(ctx.GetFloat64("zMin")))
+		opts = append(opts, storage.WithZMin(ctx.GetFloat64("zMin")))
 	}
 	zMax := ctx.Query("zMax")
 	if zMax != "" {
-		opts = append(opts, db.WithZMax(ctx.GetFloat64("zMax")))
+		opts = append(opts, storage.WithZMax(ctx.GetFloat64("zMax")))
 	}
 
 	return opts
