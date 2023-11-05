@@ -1,0 +1,53 @@
+version: '3'
+services:
+  redis:
+    image: redis:latest
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 1
+    ports:
+      - "6379:6379"
+    networks:
+      - internal
+
+  postgres:
+    image: postgres:latest
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 1
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+
+  sensors:
+    container_name: underwater-sensors
+    build:
+        context: .
+        dockerfile: Dockerfile
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 1
+    ports:
+      - "${SENSOR_PORT}:8080"
+    networks:
+      - internal
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  postgres_data:
+
+networks:
+  internal:
+#    driver: bridge
