@@ -38,7 +38,7 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 
 	groups := routes.Group(groupRouteGroup)
 	groups.GET("/transparency/average", func(context *gin.Context) {
-		avg, err := s.GetAvgTransparency(context)
+		avg, err := s.GetAvgTransparency(context, context.Param(groupNameParam))
 		if err != nil {
 			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
@@ -50,7 +50,7 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 	})
 
 	groups.GET("/temperature/average", func(context *gin.Context) {
-		avg, err := s.GetAvgTemperature(context)
+		avg, err := s.GetAvgTemperature(context, context.Param(groupNameParam))
 		if err != nil {
 			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
@@ -90,7 +90,7 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 				return
 			}
 
-			opts = append(opts, storage.WithFrom(from))
+			opts = append(opts, storage.WithCreatedFrom(from))
 		}
 
 		tillQ := context.DefaultQuery("from", "")
@@ -101,7 +101,7 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 				return
 			}
 
-			opts = append(opts, storage.WithTill(till))
+			opts = append(opts, storage.WithCreatedTill(till))
 		}
 
 		species, err := getSpecies(s, context.Param(groupNameParam), count, opts...)

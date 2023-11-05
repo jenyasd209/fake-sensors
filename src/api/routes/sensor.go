@@ -39,7 +39,7 @@ func RegisterSensorRoutes(routes *gin.Engine, s *storage.Storage) {
 				return
 			}
 
-			opts = append(opts, storage.WithFrom(from))
+			opts = append(opts, storage.WithCreatedFrom(from))
 		}
 
 		tillQ := context.DefaultQuery("from", "")
@@ -50,7 +50,7 @@ func RegisterSensorRoutes(routes *gin.Engine, s *storage.Storage) {
 				return
 			}
 
-			opts = append(opts, storage.WithTill(till))
+			opts = append(opts, storage.WithCreatedTill(till))
 		}
 
 		avg, err := s.GetSensorAvgTemperature(letter, index, opts...)
