@@ -26,7 +26,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	g.Start(context.TODO())
+
+	err = g.Start(context.TODO())
+	if err != nil {
+		panic(err)
+	}
 
 	server := api.DefaultApiServer(s)
 	err = server.Run(":8080")

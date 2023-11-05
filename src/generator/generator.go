@@ -105,16 +105,27 @@ func NewGenerator(storage *storage.Storage, opts ...DataOption) (*Generator, err
 	return generator, nil
 }
 
-func (g *Generator) Start(ctx context.Context) {
+func (g *Generator) Start(ctx context.Context) error {
 	childCtx, cancel := context.WithCancel(ctx)
 	g.cancelFunc = cancel
 
 	groups, _ := g.storage.GetAllGroups()
 	if len(groups) == 0 {
 		g.generateGroups()
+	} else {
+		sensors, err := g.storage.GetAllSensors()
+		if err != nil {
+			return err
+		}
+
+		for _, sensor := range sensors {
+			g.listToRegenerate = append(g.listToRegenerate, &regenerateNode{sensor: sensor})
+		}
 	}
 
 	go g.startMonitoring(childCtx)
+
+	return nil
 }
 
 func (g *Generator) Stop() {
