@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	FishTable         = "fishes"
+	FishTable         = "fish"
 	GroupTable        = "groups"
 	SensorTable       = "sensors"
 	TemperatureTable  = "temperatures"

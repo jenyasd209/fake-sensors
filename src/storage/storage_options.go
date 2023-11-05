@@ -20,36 +20,48 @@ type Option func(opt *Options)
 
 func WithRedisAddress(addr string) Option {
 	return func(opt *Options) {
-		opt.redisAddress = addr
+		if addr != "" {
+			opt.redisAddress = addr
+		}
 	}
 }
 
 func WithDbHost(host string) Option {
 	return func(opt *Options) {
-		opt.dbHost = host
+		if host != "" {
+			opt.dbHost = host
+		}
 	}
 }
 
 func WithDbPort(port string) Option {
 	return func(opt *Options) {
-		opt.dbPort = port
+		if port != "" {
+			opt.dbPort = port
+		}
 	}
 }
 
 func WithDbUser(user string) Option {
 	return func(opt *Options) {
-		opt.dbUser = user
+		if user != "" {
+			opt.dbUser = user
+		}
 	}
 }
 
 func WithDbPassword(pswd string) Option {
 	return func(opt *Options) {
-		opt.dbPassword = pswd
+		if pswd != "" {
+			opt.dbPassword = pswd
+		}
 	}
 }
 
 func WithDbName(name string) Option {
 	return func(opt *Options) {
-		opt.dbName = name
+		if name != "" {
+			opt.dbName = name
+		}
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -61,15 +62,23 @@ func NewStorage(opts ...Option) (*Storage, error) {
 }
 
 func (s *Storage) Close() error {
-	s.redis.Close()
+	var resultError error
+
+	if err := s.redis.Close(); err != nil {
+		resultError = multierror.Append(resultError, err)
+	}
 
 	db, err := s.db.DB()
 	if err != nil {
-		return err
+		resultError = multierror.Append(resultError, err)
+		return resultError
 	}
 
-	db.Close()
-	return nil
+	if err = db.Close(); err != nil {
+		resultError = multierror.Append(resultError, err)
+	}
+
+	return resultError
 }
 
 func (s *Storage) GetAllGroups() ([]*Group, error) {
@@ -94,21 +103,22 @@ func (s *Storage) GetAllSensors() ([]*Sensor, error) {
 
 func (s *Storage) GetSpecies(group string, limit int, opts ...ConditionOption) ([]*Fish, error) {
 	var fishes []*Fish
-	tx := s.db.Table(FishTable).
+
+	tx := s.db.
 		Select(FishTable+".*").
-		Joins("LEFT JOIN "+FishTable+" ON "+FishTable+".group_id = "+GroupTable+".id").
+		Joins("LEFT JOIN "+SensorTable+" ON "+FishTable+".sensor_id = "+SensorTable+".id").
+		Joins("LEFT JOIN "+GroupTable+" ON "+SensorTable+".group_id = "+GroupTable+".id").
 		Where(GroupTable+".name = ?", group)
 
 	for _, opt := range opts {
-		opt(FishTable, "created_at", tx)
+		opt(FishTable, tx)
 	}
 
 	if limit > 0 {
 		tx.Limit(limit)
 	}
 
-	res := tx.Find(&fishes)
-	if res.Error != nil {
+	if res := tx.Find(&fishes); res.Error != nil {
 		return nil, res.Error
 	}
 
@@ -125,16 +135,15 @@ func (s *Storage) GetMinTemperatureByRegion(opts ...CoordinateOption) (float64, 
 
 func (s *Storage) GetSensorAvgTemperature(groupName string, indexInGroup int, condOpts ...ConditionOption) (float64, error) {
 	var avg float64
-	tx := s.db.Table("groups").
-		Select("AVG("+TemperatureTable+"temperatures.temperature) AS average_temp").
-		Joins("LEFT JOIN"+SensorTable+" ON "+GroupTable+".id = "+SensorTable+".group_id").
-		Joins("LEFT JOIN"+TemperatureTable+" ON "+SensorTable+".id = "+TemperatureTable+".sensor_id").
-		Group("groups.name").
+	tx := s.db.Table(TemperatureTable).
+		Select("AVG("+TemperatureTable+".temperature) AS average_temp").
+		Joins("LEFT JOIN "+SensorTable+" ON "+TemperatureTable+".sensor_id = "+SensorTable+".id").
+		Joins("LEFT JOIN "+GroupTable+" ON "+SensorTable+".group_id = "+GroupTable+".id").
 		Where(GroupTable+".name = ?", groupName).
 		Where(SensorTable+".index_in_group = ?", indexInGroup)
 
 	for _, opt := range condOpts {
-		opt(TemperatureTable, "created_at", tx)
+		opt(TemperatureTable, tx)
 	}
 
 	res := tx.Find(&avg)
@@ -145,52 +154,92 @@ func (s *Storage) GetSensorAvgTemperature(groupName string, indexInGroup int, co
 	return avg, nil
 }
 
-func (s *Storage) GetAvgTemperature(ctx context.Context) (float64, error) {
-	return s.getCachedAvg(ctx, temperatureKey, TemperatureTable, "temperature")
+func (s *Storage) GetAvgTemperature(ctx context.Context, group string) (float64, error) {
+	return s.getCachedAvg(ctx, group, temperatureKey, TemperatureTable, "temperature")
 }
 
-func (s *Storage) GetAvgTransparency(ctx context.Context) (uint8, error) {
-	avg, err := s.getCachedAvg(ctx, transparencyKey, TransparencyTable, "transparency")
+func (s *Storage) GetAvgTransparency(ctx context.Context, group string) (uint8, error) {
+	avg, err := s.getCachedAvg(ctx, group, transparencyKey, TransparencyTable, "transparency")
 	return uint8(avg), err
 }
 
 func (s *Storage) CreateGroup(group *Group) error {
-	result := s.db.Create(group)
-
-	return result.Error
+	return s.db.Create(group).Error
 }
 
 func (s *Storage) CreateSensor(sensor *Sensor) error {
-	result := s.db.Create(sensor)
-
-	return result.Error
+	return s.db.Create(sensor).Error
 }
 
 func (s *Storage) CreateTemperature(temperature *Temperature) error {
-	result := s.db.Create(temperature)
-
-	return result.Error
+	return s.db.Create(temperature).Error
 }
 
 func (s *Storage) CreateTransparency(transparency *Transparency) error {
-	result := s.db.Create(transparency)
-
-	return result.Error
+	return s.db.Create(transparency).Error
 }
 
 func (s *Storage) CreateFish(fish *Fish) error {
-	result := s.db.Create(fish)
-
-	return result.Error
+	return s.db.Create(fish).Error
 }
 
-func (s *Storage) getCachedAvg(ctx context.Context, key, table, field string) (float64, error) {
+func (s *Storage) UpdateSensorData(fishes []*Fish, temperature *Temperature, transparency *Transparency) error {
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	for _, fish := range fishes {
+		if err := s.CreateFish(fish); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	if err := s.CreateTemperature(temperature); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := s.CreateTransparency(transparency); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	tx.Commit()
+	return tx.Error
+}
+
+func (s *Storage) InitSensorGroups(group *Group, sensors []*Sensor) error {
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	if err := s.CreateGroup(group); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	for _, sensor := range sensors {
+		sensor.GroupId = uint64(group.ID)
+		if err := s.CreateSensor(sensor); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	tx.Commit()
+	return tx.Error
+}
+
+func (s *Storage) getCachedAvg(ctx context.Context, group, key, table, field string) (float64, error) {
 	value := float64(0)
 
 	cachedValue, err := s.redis.Get(ctx, key).Result()
 	switch {
 	case err == redis.Nil:
-		value, err = s.getAvg(table, field)
+		value, err = s.getAvg(group, table, field)
 		if err != nil {
 			return 0, err
 		}
@@ -203,15 +252,21 @@ func (s *Storage) getCachedAvg(ctx context.Context, key, table, field string) (f
 		return value, nil
 	case err != nil:
 		log.Printf("Error getting value by key %s: %s", key, err)
-		return s.getAvg(table, field)
+		return s.getAvg(group, table, field)
 	default:
 		return strconv.ParseFloat(cachedValue, 64)
 	}
 }
 
-func (s *Storage) getAvg(table, field string) (float64, error) {
+func (s *Storage) getAvg(group, table, field string) (float64, error) {
 	var average float64
-	res := s.db.Table(table).Select("AVG("+field+") as average").Pluck("AVG(value)", &average)
+	res := s.db.Table(table).
+		Select("AVG("+table+"."+field+") AS average").
+		Joins("LEFT JOIN "+SensorTable+" ON "+table+".sensor_id = "+SensorTable+".id").
+		Joins("LEFT JOIN "+GroupTable+" ON "+SensorTable+".group_id = "+GroupTable+".id").
+		Where(GroupTable+".name = ?", group).
+		Pluck("AVG(value)", &average)
+
 	if res.Error != nil {
 		return 0, res.Error
 	}
