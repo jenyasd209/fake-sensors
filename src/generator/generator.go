@@ -1,8 +1,10 @@
 package generator
 
 import (
+	"context"
 	"log"
 	"math/rand"
+	"runtime"
 	"sync"
 	"time"
 
@@ -60,44 +62,6 @@ func defaultGeneratorRules() *generatorRules {
 	}
 }
 
-type DataOption func(data *generatorRules)
-
-func WithTransparency(t uint8) DataOption {
-	return func(gd *generatorRules) {
-		gd.transparencyInfelicity = t
-	}
-}
-
-func WithGroupsCount(t uint16) DataOption {
-	return func(gd *generatorRules) {
-		if t <= uint16(len(greekLetters)) {
-			gd.groupsCount = t
-		}
-	}
-}
-
-func WithSensorsCount(min, max uint16) DataOption {
-	return func(gd *generatorRules) {
-		if min > max {
-			min, max = max, min
-		}
-
-		gd.minSensorsCount = min
-		gd.maxSensorsCount = max
-	}
-}
-
-func WithDataOutputRate(min, max uint) DataOption {
-	return func(gd *generatorRules) {
-		if min > max {
-			min, max = max, min
-		}
-
-		gd.minDataOutputRate = min
-		gd.maxDataOutputRate = max
-	}
-}
-
 type regenerateNode struct {
 	previous time.Time
 	sensor   *storage.Sensor
@@ -113,10 +77,10 @@ type Generator struct {
 
 	regenerateCh chan *regenerateNode
 
-	done chan struct{}
+	cancelFunc context.CancelFunc
 }
 
-func NewGenerator(opts ...DataOption) (*Generator, error) {
+func NewGenerator(storage *storage.Storage, opts ...DataOption) (*Generator, error) {
 	rules := defaultGeneratorRules()
 	for _, opt := range opts {
 		opt(rules)
@@ -130,21 +94,29 @@ func NewGenerator(opts ...DataOption) (*Generator, error) {
 
 	generator := &Generator{
 		rules:            rules,
+		storage:          storage,
+		listLock:         sync.Mutex{},
 		listToRegenerate: make([]*regenerateNode, 0, rules.groupsCount*rules.maxSensorsCount),
 		regenerateCh:     make(chan *regenerateNode, rules.groupsCount*rules.maxSensorsCount/2),
-		done:             make(chan struct{}),
 	}
 
 	return generator, nil
 }
 
-func (g *Generator) Start() {
-	g.generateGroups()
-	go g.startMonitoring()
+func (g *Generator) Start(ctx context.Context) {
+	childCtx, cancel := context.WithCancel(ctx)
+	g.cancelFunc = cancel
+
+	groups, _ := g.storage.GetAllGroups()
+	if len(groups) > 0 {
+		g.generateGroups()
+	}
+
+	go g.startMonitoring(childCtx)
 }
 
 func (g *Generator) Stop() {
-	g.done <- struct{}{}
+	g.cancelFunc()
 }
 
 func (g *Generator) generateGroups() {
@@ -197,10 +169,12 @@ func (g *Generator) generateSensors(l string) {
 	}
 }
 
-func (g *Generator) regenerateData() {
+func (g *Generator) regenerateData(ctx context.Context) {
 	var err error
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case n, ok := <-g.regenerateCh:
 			if !ok {
 				return
@@ -216,7 +190,7 @@ func (g *Generator) regenerateData() {
 			})
 			if err != nil {
 				log.Printf("cannot save temperature for %d sensor", n.sensor.ID)
-				return
+				continue
 			}
 
 			err = g.storage.CreateTransparency(&storage.Transparency{
@@ -225,14 +199,14 @@ func (g *Generator) regenerateData() {
 			})
 			if err != nil {
 				log.Printf("cannot save transparency for %d sensor", n.sensor.ID)
-				return
+				continue
 			}
 
 			for _, fish := range newFishList {
 				err = g.storage.CreateFish(fish)
 				if err != nil {
 					log.Printf("cannot save fish for %d sensor", n.sensor.ID)
-					return
+					continue
 				}
 			}
 
@@ -241,13 +215,20 @@ func (g *Generator) regenerateData() {
 	}
 }
 
-func (g *Generator) startMonitoring() {
-	go g.regenerateData()
+func (g *Generator) startMonitoring(ctx context.Context) {
+	maxProc := runtime.GOMAXPROCS(0)
+	if maxProc > 2 {
+		maxProc /= 2
+	}
+
+	for i := 0; i < maxProc; i++ {
+		go g.regenerateData(ctx)
+	}
 
 	for {
 		sleep := time.Duration(0)
 		select {
-		case <-g.done:
+		case <-ctx.Done():
 			close(g.regenerateCh)
 			return
 		default:
