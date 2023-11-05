@@ -39,6 +39,8 @@ var (
 	}
 
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	maxProc = runtime.GOMAXPROCS(0)
 )
 
 type generatorRules struct {
@@ -108,7 +110,7 @@ func (g *Generator) Start(ctx context.Context) {
 	g.cancelFunc = cancel
 
 	groups, _ := g.storage.GetAllGroups()
-	if len(groups) > 0 {
+	if len(groups) == 0 {
 		g.generateGroups()
 	}
 
@@ -123,10 +125,18 @@ func (g *Generator) generateGroups() {
 	letters := shuffleArray(greekLetters)
 	wg := sync.WaitGroup{}
 
+	sem := make(chan struct{}, maxProc)
+	defer close(sem)
+
 	for i := 0; i < int(g.rules.groupsCount); i++ {
 		wg.Add(1)
+		sem <- struct{}{}
+
 		go func(l string) {
 			defer wg.Done()
+			defer func() {
+				<-sem
+			}()
 
 			err := g.storage.CreateGroup(&storage.Group{Name: l})
 			if err != nil {
@@ -216,7 +226,6 @@ func (g *Generator) regenerateData(ctx context.Context) {
 }
 
 func (g *Generator) startMonitoring(ctx context.Context) {
-	maxProc := runtime.GOMAXPROCS(0)
 	if maxProc > 2 {
 		maxProc /= 2
 	}
