@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -79,6 +80,16 @@ func (s *Storage) GetAllGroups() ([]*Group, error) {
 	}
 
 	return groups, nil
+}
+
+func (s *Storage) GetAllSensors() ([]*Sensor, error) {
+	var sensors []*Sensor
+	res := s.db.Find(&sensors)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	return sensors, nil
 }
 
 func (s *Storage) GetSpecies(group string, limit int, opts ...ConditionOption) ([]*Fish, error) {
@@ -174,22 +185,28 @@ func (s *Storage) CreateFish(fish *Fish) error {
 }
 
 func (s *Storage) getCachedAvg(ctx context.Context, key, table, field string) (float64, error) {
-	cachedData, err := s.redis.Get(ctx, key).Result()
-	if err != nil {
-		value, err := s.getAvg(table, field)
+	value := float64(0)
+
+	cachedValue, err := s.redis.Get(ctx, key).Result()
+	switch {
+	case err == redis.Nil:
+		value, err = s.getAvg(table, field)
 		if err != nil {
 			return 0, err
 		}
 
-		if err == redis.Nil {
-			s.redis.Set(ctx, key, value, 10*time.Second)
-		} else {
-			// should log error
-			return value, nil
+		err = s.redis.Set(ctx, key, value, 10*time.Second).Err()
+		if err != nil {
+			log.Printf("Error setting value by key %s: %s", key, err)
 		}
-	}
 
-	return strconv.ParseFloat(cachedData, 64)
+		return value, nil
+	case err != nil:
+		log.Printf("Error getting value by key %s: %s", key, err)
+		return s.getAvg(table, field)
+	default:
+		return strconv.ParseFloat(cachedValue, 64)
+	}
 }
 
 func (s *Storage) getAvg(table, field string) (float64, error) {
