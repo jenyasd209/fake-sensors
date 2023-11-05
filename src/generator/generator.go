@@ -30,13 +30,10 @@ const (
 	minTemperature = -273.17
 	maxTemperature = 56.7
 
-	defaultMaxZ            = 1000.0
-	defaultTemperatureStep = 5.0
+	defaultMaxZ = 1000.0
 
-	temperatureSum  = (minTemperature - maxTemperature) * -1
-	totalStepsCount = defaultMaxZ / defaultTemperatureStep
-	tempPerStep     = temperatureSum / totalStepsCount
-
+	temperatureSum               = (minTemperature - maxTemperature) * -1
+	tempPerPoint                 = temperatureSum / defaultMaxZ
 	allowedTemperatureDifference = 3
 )
 
@@ -298,8 +295,7 @@ func shuffleArray(array []string) []string {
 }
 
 func randomTemperature(z float64) float64 {
-	stepsCount := z / defaultTemperatureStep
-	t := maxTemperature - stepsCount*tempPerStep
+	t := maxTemperature - z*tempPerPoint
 
 	minT := t - allowedTemperatureDifference
 	maxT := t + allowedTemperatureDifference
