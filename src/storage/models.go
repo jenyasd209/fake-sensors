@@ -7,11 +7,11 @@ import (
 )
 
 const (
-	FishTable         = "fish"
-	GroupTable        = "group"
-	SensorTable       = "sensor"
-	TemperatureTable  = "temperature"
-	TransparencyTable = "transparency"
+	FishTable         = "fishes"
+	GroupTable        = "groups"
+	SensorTable       = "sensors"
+	TemperatureTable  = "temperatures"
+	TransparencyTable = "transparencies"
 )
 
 type Fish struct {

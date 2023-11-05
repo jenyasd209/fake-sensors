@@ -31,26 +31,24 @@ func NewStorage(opts ...Option) (*Storage, error) {
 		opt(options)
 	}
 
-	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
-		options.host,
-		options.user,
-		options.password,
-		options.dbname,
-		options.port,
-	)
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := connectToDb(options)
 	if err != nil {
 		return nil, err
 	}
+
+	defer func() {
+		if err != nil {
+			db, _ := db.DB()
+			db.Close()
+		}
+	}()
 
 	err = db.AutoMigrate(Fish{}, Group{}, Sensor{}, Transparency{}, Temperature{})
 	if err != nil {
 		return nil, err
 	}
 
-	redisClient := redis.NewClient(&redis.Options{Addr: options.redisAddress})
-	_, err = redisClient.Ping(context.Background()).Result()
+	redisClient, err := connectToRedis(options)
 	if err != nil {
 		return nil, err
 	}
@@ -61,78 +59,21 @@ func NewStorage(opts ...Option) (*Storage, error) {
 	}, nil
 }
 
-type Options struct {
-	redisAddress                       string
-	host, user, password, dbname, port string
-}
+func (s *Storage) Close() error {
+	s.redis.Close()
 
-func DefaultOptions() *Options {
-	return &Options{
-		redisAddress: "",
-		host:         "",
-		user:         "",
-		password:     "",
-		dbname:       "",
-		port:         "",
+	db, err := s.db.DB()
+	if err != nil {
+		return err
 	}
-}
 
-type Option func(opt *Options)
-type ConditionOption func(table, field string, tx *gorm.DB)
-
-func WithFrom(from time.Time) ConditionOption {
-	return func(table, field string, tx *gorm.DB) {
-		tx.Where(table+"."+field+" >= ?", from)
-	}
-}
-
-func WithTill(till time.Time) ConditionOption {
-	return func(table, field string, tx *gorm.DB) {
-		tx.Where(table+"."+field+" <= ?", till)
-	}
-}
-
-type CoordinateOption func(tx *gorm.DB)
-
-func WithXMin(xMin float64) CoordinateOption {
-	return func(tx *gorm.DB) {
-		tx.Where(SensorTable+".x >= ?", xMin)
-	}
-}
-
-func WithXMax(xMax float64) CoordinateOption {
-	return func(tx *gorm.DB) {
-		tx.Where(SensorTable+".x <= ?", xMax)
-	}
-}
-
-func WithYMin(yMin float64) CoordinateOption {
-	return func(tx *gorm.DB) {
-		tx.Where(SensorTable+".y >= ?", yMin)
-	}
-}
-
-func WithYMax(yMax float64) CoordinateOption {
-	return func(tx *gorm.DB) {
-		tx.Where(SensorTable+".y <= ?", yMax)
-	}
-}
-
-func WithZMin(zMin float64) CoordinateOption {
-	return func(tx *gorm.DB) {
-		tx.Where(SensorTable+".z >= ?", zMin)
-	}
-}
-
-func WithZMax(zMax float64) CoordinateOption {
-	return func(tx *gorm.DB) {
-		tx.Where(SensorTable+".z <= ?", zMax)
-	}
+	db.Close()
+	return nil
 }
 
 func (s *Storage) GetAllGroups() ([]*Group, error) {
 	var groups []*Group
-	res := s.db.Find(GroupTable)
+	res := s.db.Find(&groups)
 	if res.Error != nil {
 		return nil, res.Error
 	}
@@ -286,4 +227,48 @@ func (s *Storage) getTemperatureByRegion(v uint8, opts ...CoordinateOption) (flo
 	}
 
 	return t, nil
+}
+
+func connectToDb(options *Options) (*gorm.DB, error) {
+	dsn := fmt.Sprintf(
+		"host=%s user=%s password=%s port=%s sslmode=disable",
+		options.dbHost,
+		options.dbUser,
+		options.dbPassword,
+		options.dbPort,
+	)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		db, _ := db.DB()
+		db.Close()
+	}()
+
+	var dbExists bool
+	db.Raw("SELECT EXISTS (SELECT datname FROM pg_database WHERE datname = ?)", options.dbName).Scan(&dbExists)
+
+	if !dbExists {
+		// Create the database
+		db.Exec("CREATE DATABASE " + options.dbName)
+	}
+
+	// Connect to the newly created or existing database
+	db, err = gorm.Open(postgres.Open(dsn+" dbname="+options.dbName), &gorm.Config{})
+	if err != nil {
+		panic("Failed to connect to the database")
+	}
+
+	return gorm.Open(postgres.Open(dsn+" dbname="+options.dbName), &gorm.Config{})
+}
+
+func connectToRedis(options *Options) (*redis.Client, error) {
+	redisClient := redis.NewClient(&redis.Options{Addr: options.redisAddress})
+	_, err := redisClient.Ping(context.Background()).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	return redisClient, nil
 }
