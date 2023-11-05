@@ -123,8 +123,7 @@ func (g *Generator) Start(ctx context.Context) error {
 		}
 	}
 
-	go g.startMonitoring(childCtx)
-
+	g.startMonitoring(childCtx)
 	return nil
 }
 
@@ -134,8 +133,8 @@ func (g *Generator) Stop() {
 
 func (g *Generator) generateGroups() {
 	letters := shuffleArray(greekLetters)
-	wg := sync.WaitGroup{}
 
+	wg := sync.WaitGroup{}
 	sem := make(chan struct{}, maxProc)
 	defer close(sem)
 
@@ -145,49 +144,43 @@ func (g *Generator) generateGroups() {
 
 		go func(l string) {
 			defer wg.Done()
-			defer func() {
-				<-sem
-			}()
+			defer func() { <-sem }()
 
-			err := g.storage.CreateGroup(&storage.Group{Name: l})
+			sensors := g.generateSensors()
+			err := g.storage.InitSensorGroups(&storage.Group{Name: l}, sensors)
 			if err != nil {
-				log.Printf("cannot save %s group\n", l)
+				log.Printf("cannot save %s group and sensors for this group\n", l)
 				return
 			}
 
-			g.generateSensors(l)
+			g.listLock.Lock()
+			for _, sensor := range sensors {
+				g.listToRegenerate = append(g.listToRegenerate, &regenerateNode{sensor: sensor})
+			}
+			g.listLock.Unlock()
 		}(letters[i])
 	}
 
 	wg.Wait()
 }
 
-func (g *Generator) generateSensors(l string) {
+func (g *Generator) generateSensors() []*storage.Sensor {
 	sensorsCount := int(g.rules.minSensorsCount) + random.Intn(int(g.rules.maxSensorsCount-g.rules.minSensorsCount))
+	sensors := make([]*storage.Sensor, 0, sensorsCount)
+
 	for i := 0; i < sensorsCount; i++ {
 		dataOutputRate := int(g.rules.minDataOutputRate) + random.Intn(int(g.rules.maxDataOutputRate-g.rules.minDataOutputRate))
-		sensor := &storage.Sensor{
+		sensors = append(sensors, &storage.Sensor{
 			Model:          gorm.Model{},
 			IndexInGroup:   uint64(i),
 			X:              random.Float64(),
 			Y:              random.Float64(),
 			Z:              random.Float64(),
 			DataOutputRate: time.Second * time.Duration(dataOutputRate),
-		}
-
-		err := g.storage.CreateSensor(sensor)
-		if err != nil {
-			log.Printf("cannot save %d sensor in the %s group\n", i, l)
-			return
-		}
-
-		g.listLock.Lock()
-		g.listToRegenerate = append(g.listToRegenerate, &regenerateNode{
-			previous: time.Now(),
-			sensor:   sensor,
 		})
-		g.listLock.Unlock()
 	}
+
+	return sensors
 }
 
 func (g *Generator) regenerateData(ctx context.Context) {
@@ -201,34 +194,20 @@ func (g *Generator) regenerateData(ctx context.Context) {
 				return
 			}
 
-			newTemperature := randomTemperature()
-			newTransparency := uint8(random.Intn(defaultTransparency))
-			newFishList := g.newRandomFishList(uint64(n.sensor.ID), defaultFishListLength)
-
-			err = g.storage.CreateTemperature(&storage.Temperature{
-				SensorId:    uint64(n.sensor.ID),
-				Temperature: newTemperature,
-			})
+			err = g.storage.UpdateSensorData(
+				g.newRandomFishList(uint64(n.sensor.ID), defaultFishListLength),
+				&storage.Temperature{
+					SensorId:    uint64(n.sensor.ID),
+					Temperature: randomTemperature(),
+				},
+				&storage.Transparency{
+					SensorId:     uint64(n.sensor.ID),
+					Transparency: uint8(random.Intn(defaultTransparency)),
+				},
+			)
 			if err != nil {
 				log.Printf("cannot save temperature for %d sensor", n.sensor.ID)
 				continue
-			}
-
-			err = g.storage.CreateTransparency(&storage.Transparency{
-				SensorId:     uint64(n.sensor.ID),
-				Transparency: newTransparency,
-			})
-			if err != nil {
-				log.Printf("cannot save transparency for %d sensor", n.sensor.ID)
-				continue
-			}
-
-			for _, fish := range newFishList {
-				err = g.storage.CreateFish(fish)
-				if err != nil {
-					log.Printf("cannot save fish for %d sensor", n.sensor.ID)
-					continue
-				}
 			}
 
 			n.previous = time.Now()
@@ -245,28 +224,30 @@ func (g *Generator) startMonitoring(ctx context.Context) {
 		go g.regenerateData(ctx)
 	}
 
-	for {
-		sleep := time.Duration(0)
-		select {
-		case <-ctx.Done():
-			close(g.regenerateCh)
-			return
-		default:
-			for _, node := range g.listToRegenerate {
-				diff := time.Now().Sub(node.previous)
-				if diff > node.sensor.DataOutputRate {
-					g.regenerateCh <- node
-				} else {
-					newSleep := node.sensor.DataOutputRate - diff
-					if newSleep < sleep {
-						sleep = newSleep
+	go func() {
+		for {
+			sleep := time.Duration(0)
+			select {
+			case <-ctx.Done():
+				close(g.regenerateCh)
+				return
+			default:
+				for _, node := range g.listToRegenerate {
+					diff := time.Now().Sub(node.previous)
+					if diff > node.sensor.DataOutputRate {
+						g.regenerateCh <- node
+					} else {
+						newSleep := node.sensor.DataOutputRate - diff
+						if newSleep < sleep {
+							sleep = newSleep
+						}
 					}
 				}
-			}
 
-			time.Sleep(sleep)
+				time.Sleep(sleep)
+			}
 		}
-	}
+	}()
 }
 
 func (g *Generator) newRandomFishList(sensorId uint64, count int) []*storage.Fish {
