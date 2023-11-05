@@ -1,21 +1,15 @@
-# Build stage
-FROM golang:1.19 as builder
+FROM golang:alpine AS builder
 
-WORKDIR /underwater-sensors
+WORKDIR /app
 
 COPY . .
 
-RUN go mod download
+RUN go build -o sensor ./src/cmd/main.go
 
-RUN go build -o sensor ./src/cmd
+FROM alpine
 
-# Final stage
-FROM alpine:3.14
+WORKDIR /app
 
-WORKDIR /underwater-sensors
+COPY --from=builder /app/sensor /app/sensor
 
-COPY --from=builder /underwater-sensors/sensor /underwater-sensors/sensor
-
-EXPOSE 8080
-
-CMD ["/underwater-sensors/sensor"]
+CMD ["./sensor"]
