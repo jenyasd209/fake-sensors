@@ -21,7 +21,7 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 	routes.GET(groupRouteGroup, func(context *gin.Context) {
 		groupRecords, err := s.GetAllGroups()
 		if err != nil {
-			context.AbortWithError(http.StatusInternalServerError, err)
+			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
 		}
 
@@ -40,7 +40,7 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 	groups.GET("/transparency/average", func(context *gin.Context) {
 		avg, err := s.GetAvgTransparency(context)
 		if err != nil {
-			context.AbortWithError(http.StatusInternalServerError, err)
+			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
 		}
 
@@ -52,7 +52,7 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 	groups.GET("/temperature/average", func(context *gin.Context) {
 		avg, err := s.GetAvgTemperature(context)
 		if err != nil {
-			context.AbortWithError(http.StatusInternalServerError, err)
+			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
 		}
 
@@ -64,7 +64,7 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 	groups.GET("/species", func(context *gin.Context) {
 		species, err := getSpecies(s, context.Param(groupNameParam), 0)
 		if err != nil {
-			context.AbortWithError(http.StatusInternalServerError, err)
+			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
 		}
 
@@ -77,7 +77,7 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 	species.GET("top/:n", func(context *gin.Context) {
 		count, err := strconv.Atoi(context.Param("n"))
 		if err != nil {
-			context.AbortWithError(http.StatusInternalServerError, err)
+			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
 		}
 
@@ -97,7 +97,7 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 		if tillQ != "" {
 			till, err := time.Parse(time.UnixDate, context.DefaultQuery("till", ""))
 			if err != nil {
-				context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format"})
+				context.JSON(http.StatusBadRequest, response.Error{Error: "Invalid date format"})
 				return
 			}
 
@@ -106,7 +106,7 @@ func RegisterGroupRoutes(routes *gin.Engine, s *storage.Storage) {
 
 		species, err := getSpecies(s, context.Param(groupNameParam), count, opts...)
 		if err != nil {
-			context.AbortWithError(http.StatusInternalServerError, err)
+			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
 		}
 

@@ -26,7 +26,7 @@ func RegisterSensorRoutes(routes *gin.Engine, s *storage.Storage) {
 		letter := matches[1]
 		index, err := strconv.Atoi(matches[2])
 		if err != nil {
-			context.AbortWithError(http.StatusInternalServerError, err)
+			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
 		}
 
@@ -46,7 +46,7 @@ func RegisterSensorRoutes(routes *gin.Engine, s *storage.Storage) {
 		if tillQ != "" {
 			till, err := time.Parse(time.UnixDate, context.DefaultQuery("till", ""))
 			if err != nil {
-				context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format"})
+				context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 				return
 			}
 
@@ -55,7 +55,7 @@ func RegisterSensorRoutes(routes *gin.Engine, s *storage.Storage) {
 
 		avg, err := s.GetSensorAvgTemperature(letter, index, opts...)
 		if err != nil {
-			context.AbortWithError(http.StatusInternalServerError, err)
+			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
 		}
 

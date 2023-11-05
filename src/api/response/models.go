@@ -20,3 +20,7 @@ type SpeciesList struct {
 type Value struct {
 	Value string `json:"value"`
 }
+
+type Error struct {
+	Error string `json:"error"`
+}

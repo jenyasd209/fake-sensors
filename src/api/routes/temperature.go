@@ -19,7 +19,7 @@ func RegisterTemperatureRoutes(routes *gin.Engine, storage *storage.Storage) {
 	groups.GET("/min", func(context *gin.Context) {
 		minT, err := storage.GetMinTemperatureByRegion(parseCoordinates(context)...)
 		if err != nil {
-			context.AbortWithError(http.StatusInternalServerError, err)
+			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
 		}
 
@@ -31,7 +31,7 @@ func RegisterTemperatureRoutes(routes *gin.Engine, storage *storage.Storage) {
 	groups.GET("/max", func(context *gin.Context) {
 		maxT, err := storage.GetMinTemperatureByRegion(parseCoordinates(context)...)
 		if err != nil {
-			context.AbortWithError(http.StatusInternalServerError, err)
+			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
 			return
 		}
 
