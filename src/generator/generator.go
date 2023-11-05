@@ -29,6 +29,15 @@ const (
 
 	minTemperature = -273.17
 	maxTemperature = 56.7
+
+	defaultMaxZ            = 1000.0
+	defaultTemperatureStep = 5.0
+
+	temperatureSum  = (minTemperature - maxTemperature) * -1
+	totalStepsCount = defaultMaxZ / defaultTemperatureStep
+	tempPerStep     = temperatureSum / totalStepsCount
+
+	allowedTemperatureDifference = 3
 )
 
 var (
@@ -198,7 +207,7 @@ func (g *Generator) regenerateData(ctx context.Context) {
 				g.newRandomFishList(uint64(n.sensor.ID), defaultFishListLength),
 				&storage.Temperature{
 					SensorId:    uint64(n.sensor.ID),
-					Temperature: randomTemperature(),
+					Temperature: randomTemperature(n.sensor.Z),
 				},
 				&storage.Transparency{
 					SensorId:     uint64(n.sensor.ID),
@@ -288,6 +297,12 @@ func shuffleArray(array []string) []string {
 	return mixedArray
 }
 
-func randomTemperature() float64 {
-	return minTemperature + rand.Float64()*(maxTemperature-minTemperature)
+func randomTemperature(z float64) float64 {
+	stepsCount := z / defaultTemperatureStep
+	t := maxTemperature - stepsCount*tempPerStep
+
+	minT := t - allowedTemperatureDifference
+	maxT := t + allowedTemperatureDifference
+
+	return minT + random.Float64()*(maxT-minT)
 }
