@@ -231,11 +231,11 @@ func (s *Storage) getTemperatureByRegion(v uint8, opts ...CoordinateOption) (flo
 
 func connectToDb(options *Options) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s port=%s sslmode=disable",
+		"host=%s port=%s user=%s password=%s sslmode=disable",
 		options.dbHost,
+		options.dbPort,
 		options.dbUser,
 		options.dbPassword,
-		options.dbPort,
 	)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -250,11 +250,9 @@ func connectToDb(options *Options) (*gorm.DB, error) {
 	db.Raw("SELECT EXISTS (SELECT datname FROM pg_database WHERE datname = ?)", options.dbName).Scan(&dbExists)
 
 	if !dbExists {
-		// Create the database
 		db.Exec("CREATE DATABASE " + options.dbName)
 	}
 
-	// Connect to the newly created or existing database
 	db, err = gorm.Open(postgres.Open(dsn+" dbname="+options.dbName), &gorm.Config{})
 	if err != nil {
 		panic("Failed to connect to the database")

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 
 	"github.com/jenyasd209/fake-sensors/src/api"
 	"github.com/jenyasd209/fake-sensors/src/generator"
@@ -9,7 +10,14 @@ import (
 )
 
 func main() {
-	s, err := storage.NewStorage()
+	s, err := storage.NewStorage(
+		storage.WithDbUser(os.Getenv("POSTGRES_USER")),
+		storage.WithDbPassword(os.Getenv("POSTGRES_PASSWORD")),
+		storage.WithDbPort(os.Getenv("POSTGRES_PORT")),
+		storage.WithDbHost(os.Getenv("POSTGRES_HOST")),
+		storage.WithDbName(os.Getenv("POSTGRES_NAME")),
+		storage.WithRedisAddress(os.Getenv("REDIS_ADDRESS")),
+	)
 	if err != nil {
 		panic(err)
 	}
