@@ -1,0 +1,311 @@
+definitions:
+  routes.Average:
+    properties:
+      average:
+        type: string
+    type: object
+  routes.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  routes.Groups:
+    properties:
+      groups:
+        items:
+          type: string
+        type: array
+    type: object
+  routes.Species:
+    properties:
+      count:
+        type: string
+      name:
+        type: string
+    type: object
+  routes.SpeciesList:
+    properties:
+      species:
+        items:
+          $ref: '#/definitions/routes.Species'
+        type: array
+    type: object
+  routes.Value:
+    properties:
+      value:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /group:
+    get:
+      description: Get groups list
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/routes.Groups'
+        "400":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      summary: Get groups list
+  /group/{groupName}/species:
+    get:
+      description: Get full list of species (with counts) currently detected inside
+        the group.
+      parameters:
+      - description: Group name
+        in: path
+        name: groupName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/routes.SpeciesList'
+        "400":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      summary: Get full list of species inside the group
+  /group/{groupName}/species/top/:n:
+    get:
+      description: Get full list of N species (with counts) currently detected inside
+        the group.
+      parameters:
+      - description: Group name
+        in: path
+        name: groupName
+        required: true
+        type: string
+      - description: Count of species
+        in: path
+        name: "n"
+        required: true
+        type: integer
+      - description: From (UNIX timestamps)
+        in: query
+        name: from
+        type: string
+      - description: Till (UNIX timestamps)
+        in: query
+        name: till
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/routes.SpeciesList'
+        "400":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      summary: Get full list of N species inside the group
+  /group/{groupName}/temperature/average:
+    get:
+      description: Get the current average temperature within a group.
+      parameters:
+      - description: Group name
+        in: path
+        name: groupName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/routes.Average'
+        "400":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      summary: Get current average temperature inside the group
+  /group/{groupName}/transparency/average:
+    get:
+      description: Get the current average transparency within a group.
+      parameters:
+      - description: Group name
+        in: path
+        name: groupName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/routes.Average'
+        "400":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      summary: Get current average transparency inside the group
+  /region/temperature/max:
+    get:
+      description: Get current maximum temperature inside the region. Region here
+        and below is an area represented by the range of coordinates
+      parameters:
+      - description: minX
+        format: float
+        in: path
+        name: minX
+        type: number
+      - description: maxX
+        format: float
+        in: path
+        name: maxX
+        type: number
+      - description: minY
+        format: float
+        in: path
+        name: minY
+        type: number
+      - description: maxY
+        format: float
+        in: path
+        name: maxY
+        type: number
+      - description: minZ
+        format: float
+        in: path
+        name: minZ
+        type: number
+      - description: maxZ
+        format: float
+        in: path
+        name: maxZ
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/routes.Value'
+        "400":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      summary: Get current maximum temperature inside the region
+  /region/temperature/min:
+    get:
+      description: Get current minimum temperature inside the region. Region here
+        and below is an area represented by the range of coordinates
+      parameters:
+      - description: minX
+        format: float
+        in: path
+        name: minX
+        type: number
+      - description: maxX
+        format: float
+        in: path
+        name: maxX
+        type: number
+      - description: minY
+        format: float
+        in: path
+        name: minY
+        type: number
+      - description: maxY
+        format: float
+        in: path
+        name: maxY
+        type: number
+      - description: minZ
+        format: float
+        in: path
+        name: minZ
+        type: number
+      - description: maxZ
+        format: float
+        in: path
+        name: maxZ
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/routes.Value'
+        "400":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      summary: Get current minimum temperature inside the region
+  /sensor/{codeName}/temperature/average:
+    get:
+      description: Get average temperature detected by a particular sensor between
+        the specified date/time pairs (UNIX timestamps)
+      parameters:
+      - description: sensor code name
+        in: path
+        name: codeName
+        required: true
+        type: string
+      - description: From (UNIX timestamps)
+        in: query
+        name: from
+        type: string
+      - description: Till (UNIX timestamps)
+        in: query
+        name: till
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/routes.Average'
+        "400":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: error message
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      summary: Get average temperature detected by a particular sensor
+swagger: "2.0"

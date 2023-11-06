@@ -1,0 +1,463 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/group": {
+            "get": {
+                "description": "Get groups list",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get groups list",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/routes.Groups"
+                        }
+                    },
+                    "400": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/group/{groupName}/species": {
+            "get": {
+                "description": "Get full list of species (with counts) currently detected inside the group.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get full list of species inside the group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "groupName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/routes.SpeciesList"
+                        }
+                    },
+                    "400": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/group/{groupName}/species/top/:n": {
+            "get": {
+                "description": "Get full list of N species (with counts) currently detected inside the group.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get full list of N species inside the group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "groupName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Count of species",
+                        "name": "n",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "From (UNIX timestamps)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Till (UNIX timestamps)",
+                        "name": "till",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/routes.SpeciesList"
+                        }
+                    },
+                    "400": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/group/{groupName}/temperature/average": {
+            "get": {
+                "description": "Get the current average temperature within a group.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get current average temperature inside the group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "groupName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/routes.Average"
+                        }
+                    },
+                    "400": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/group/{groupName}/transparency/average": {
+            "get": {
+                "description": "Get the current average transparency within a group.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get current average transparency inside the group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "groupName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/routes.Average"
+                        }
+                    },
+                    "400": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/temperature/max": {
+            "get": {
+                "description": "Get current maximum temperature inside the region. Region here and below is an area represented by the range of coordinates",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get current maximum temperature inside the region",
+                "parameters": [
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "minX",
+                        "name": "minX",
+                        "in": "path"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "maxX",
+                        "name": "maxX",
+                        "in": "path"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "minY",
+                        "name": "minY",
+                        "in": "path"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "maxY",
+                        "name": "maxY",
+                        "in": "path"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "minZ",
+                        "name": "minZ",
+                        "in": "path"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "maxZ",
+                        "name": "maxZ",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/routes.Value"
+                        }
+                    },
+                    "400": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/temperature/min": {
+            "get": {
+                "description": "Get current minimum temperature inside the region. Region here and below is an area represented by the range of coordinates",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get current minimum temperature inside the region",
+                "parameters": [
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "minX",
+                        "name": "minX",
+                        "in": "path"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "maxX",
+                        "name": "maxX",
+                        "in": "path"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "minY",
+                        "name": "minY",
+                        "in": "path"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "maxY",
+                        "name": "maxY",
+                        "in": "path"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "minZ",
+                        "name": "minZ",
+                        "in": "path"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float",
+                        "description": "maxZ",
+                        "name": "maxZ",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/routes.Value"
+                        }
+                    },
+                    "400": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sensor/{codeName}/temperature/average": {
+            "get": {
+                "description": "Get average temperature detected by a particular sensor between the specified date/time pairs (UNIX timestamps)",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get average temperature detected by a particular sensor",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "sensor code name",
+                        "name": "codeName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "From (UNIX timestamps)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Till (UNIX timestamps)",
+                        "name": "till",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/routes.Average"
+                        }
+                    },
+                    "400": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "error message",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "routes.Average": {
+            "type": "object",
+            "properties": {
+                "average": {
+                    "type": "string"
+                }
+            }
+        },
+        "routes.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "routes.Groups": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "routes.Species": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "routes.SpeciesList": {
+            "type": "object",
+            "properties": {
+                "species": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routes.Species"
+                    }
+                }
+            }
+        },
+        "routes.Value": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}
