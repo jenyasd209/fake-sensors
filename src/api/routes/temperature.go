@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/jenyasd209/fake-sensors/src/api/response"
 	"github.com/jenyasd209/fake-sensors/src/storage"
 
 	"github.com/gin-gonic/gin"
@@ -12,33 +11,60 @@ import (
 
 const temperatureRouteGroup = "/region/temperature"
 
-func RegisterTemperatureRoutes(routes *gin.Engine, storage *storage.Storage) {
-	routes.GET(temperatureRouteGroup, func(context *gin.Context) {})
+func RegisterTemperatureRoutes(router *Router) {
+	groups := router.routes.Group(temperatureRouteGroup)
 
-	groups := routes.Group(temperatureRouteGroup)
-	groups.GET("/min", func(context *gin.Context) {
-		minT, err := storage.GetMinTemperatureByRegion(parseCoordinates(context)...)
-		if err != nil {
-			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
-			return
-		}
+	groups.GET("/min", router.GetMinTemperature)
+	groups.GET("/max", router.GetMaxTemperature)
+}
 
-		context.JSON(http.StatusOK, response.Value{
-			Value: strconv.FormatFloat(minT, 'f', 2, 64),
-		})
+// @Summary Get current minimum temperature inside the region
+// @Description Get current minimum temperature inside the region. Region here and below is an area represented by the range of coordinates
+// @Produce json
+// @Param minX path number false "minX" format(float)
+// @Param maxX path number false "maxX" format(float)
+// @Param minY path number false "minY" format(float)
+// @Param maxY path number false "maxY" format(float)
+// @Param minZ path number false "minZ" format(float)
+// @Param maxZ path number false "maxZ" format(float)
+// @Success 200 {object} Value
+// @Failure 400 {object} ErrorResponse "error message"
+// @Failure 500 {object} ErrorResponse "error message"
+// @Router /region/temperature/min [get]
+func (r *Router) GetMinTemperature(context *gin.Context) {
+	minT, err := r.storage.GetMinTemperatureByRegion(parseCoordinates(context)...)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	context.JSON(http.StatusOK, Value{
+		Value: strconv.FormatFloat(minT, 'f', 2, 64),
 	})
+}
 
-	groups.GET("/max", func(context *gin.Context) {
-		maxT, err := storage.GetMinTemperatureByRegion(parseCoordinates(context)...)
-		if err != nil {
-			context.JSON(http.StatusInternalServerError, response.Error{Error: err.Error()})
-			return
-		}
+// @Summary Get current maximum temperature inside the region
+// @Description Get current maximum temperature inside the region. Region here and below is an area represented by the range of coordinates
+// @Produce json
+// @Param minX path number false "minX" format(float)
+// @Param maxX path number false "maxX" format(float)
+// @Param minY path number false "minY" format(float)
+// @Param maxY path number false "maxY" format(float)
+// @Param minZ path number false "minZ" format(float)
+// @Param maxZ path number false "maxZ" format(float)
+// @Success 200 {object} Value
+// @Failure 400 {object} ErrorResponse "error message"
+// @Failure 500 {object} ErrorResponse "error message"
+// @Router /region/temperature/max [get]
+func (r *Router) GetMaxTemperature(context *gin.Context) {
+	maxT, err := r.storage.GetMaxTemperatureByRegion(parseCoordinates(context)...)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
 
-		context.JSON(http.StatusOK, response.Value{
-
-			Value: strconv.FormatFloat(maxT, 'f', 2, 64),
-		})
+	context.JSON(http.StatusOK, Value{
+		Value: strconv.FormatFloat(maxT, 'f', 2, 64),
 	})
 }
 
