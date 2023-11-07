@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -10,6 +11,8 @@ import (
 )
 
 const temperatureRouteGroup = "/region/temperature"
+
+var ErrBadCoordinate = errors.New("bad coordinate")
 
 func RegisterTemperatureRoutes(router *Router) {
 	groups := router.routes.Group(temperatureRouteGroup)
@@ -32,7 +35,13 @@ func RegisterTemperatureRoutes(router *Router) {
 // @Failure 500 {object} ErrorResponse "error message"
 // @Router /region/temperature/min [get]
 func (r *Router) GetMinTemperature(context *gin.Context) {
-	minT, err := r.storage.GetMinTemperatureByRegion(parseCoordinates(context)...)
+	opts, err := parseCoordinates(context)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	minT, err := r.storage.GetMinTemperatureByRegion(opts...)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 		return
@@ -57,7 +66,13 @@ func (r *Router) GetMinTemperature(context *gin.Context) {
 // @Failure 500 {object} ErrorResponse "error message"
 // @Router /region/temperature/max [get]
 func (r *Router) GetMaxTemperature(context *gin.Context) {
-	maxT, err := r.storage.GetMaxTemperatureByRegion(parseCoordinates(context)...)
+	opts, err := parseCoordinates(context)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	maxT, err := r.storage.GetMaxTemperatureByRegion(opts...)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 		return
@@ -68,35 +83,64 @@ func (r *Router) GetMaxTemperature(context *gin.Context) {
 	})
 }
 
-func parseCoordinates(ctx *gin.Context) []storage.CoordinateOption {
+func parseCoordinates(ctx *gin.Context) ([]storage.CoordinateOption, error) {
 	opts := make([]storage.CoordinateOption, 0, 6)
 
-	xMin := ctx.Query("xMin")
-	if xMin != "" {
-		opts = append(opts, storage.WithXMin(ctx.GetFloat64("xMin")))
-	}
-	xMax := ctx.Query("xMax")
-	if xMax != "" {
-		opts = append(opts, storage.WithXMax(ctx.GetFloat64("xMax")))
+	xMin, ok, err := parseFloat64Query(ctx, "xMin")
+	if err != nil {
+		return nil, err
+	} else if ok {
+		opts = append(opts, storage.WithXMin(xMin))
 	}
 
-	yMin := ctx.Query("yMin")
-	if yMin != "" {
-		opts = append(opts, storage.WithYMin(ctx.GetFloat64("yMin")))
-	}
-	yMax := ctx.Query("yMax")
-	if yMax != "" {
-		opts = append(opts, storage.WithYMax(ctx.GetFloat64("yMax")))
+	xMax, ok, err := parseFloat64Query(ctx, "xMax")
+	if err != nil {
+		return nil, err
+	} else if ok {
+		opts = append(opts, storage.WithXMax(xMax))
 	}
 
-	zMin := ctx.Query("zMin")
-	if zMin != "" {
-		opts = append(opts, storage.WithZMin(ctx.GetFloat64("zMin")))
-	}
-	zMax := ctx.Query("zMax")
-	if zMax != "" {
-		opts = append(opts, storage.WithZMax(ctx.GetFloat64("zMax")))
+	yMin, ok, err := parseFloat64Query(ctx, "yMin")
+	if err != nil {
+		return nil, err
+	} else if ok {
+		opts = append(opts, storage.WithYMin(yMin))
 	}
 
-	return opts
+	yMax, ok, err := parseFloat64Query(ctx, "yMax")
+	if err != nil {
+		return nil, err
+	} else if ok {
+		opts = append(opts, storage.WithYMax(yMax))
+	}
+
+	zMin, ok, err := parseFloat64Query(ctx, "zMin")
+	if err != nil {
+		return nil, err
+	} else if ok {
+		opts = append(opts, storage.WithZMin(zMin))
+	}
+
+	zMax, ok, err := parseFloat64Query(ctx, "zMax")
+	if err != nil {
+		return nil, err
+	} else if ok {
+		opts = append(opts, storage.WithZMax(zMax))
+	}
+
+	return opts, nil
+}
+
+func parseFloat64Query(ctx *gin.Context, arg string) (float64, bool, error) {
+	v, ok := ctx.GetQuery(arg)
+	if !ok {
+		return 0, false, nil
+	}
+
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return 0, false, errors.New(ErrBadCoordinate.Error() + ": " + arg)
+	}
+
+	return f, true, nil
 }
