@@ -29,7 +29,7 @@ func RegisterGroupRoutes(router *Router) {
 	groups.GET(groupAvgTemperature, router.GetGroupAvgTemperature)
 
 	groups.GET(groupSpecies, router.GetGroupSpecies)
-	species := router.routes.Group(groupSpecies)
+	species := groups.Group(groupSpecies)
 	species.GET(groupTopSpecies, router.GetGroupTopSpecies)
 }
 
@@ -167,8 +167,8 @@ func (r *Router) GetGroupTopSpecies(context *gin.Context) {
 	})
 }
 
-func getSpecies(storage *storage.Storage, groupName string, limit int, opts ...storage.ConditionOption) ([]*Species, error) {
-	fishesRecords, err := storage.GetSpecies(groupName, limit, opts...)
+func getSpecies(storage *storage.Storage, groupName string, top int, opts ...storage.ConditionOption) ([]*Species, error) {
+	fishesRecords, err := storage.GetSpecies(groupName, top, opts...)
 	if err != nil {
 		return nil, err
 	}
