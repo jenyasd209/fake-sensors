@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -21,6 +22,8 @@ const (
 	minTemperature = 0
 	maxTemperature = 1
 )
+
+var ErrNoSensorsInArea = errors.New("no sensors in this area")
 
 type Storage struct {
 	db    *gorm.DB
@@ -190,18 +193,18 @@ func (s *Storage) UpdateSensorData(fishes []*Fish, temperature *Temperature, tra
 	}
 
 	for _, fish := range fishes {
-		if err := s.CreateFish(fish); err != nil {
+		if err := tx.Create(fish).Error; err != nil {
 			tx.Rollback()
 			return err
 		}
 	}
 
-	if err := s.CreateTemperature(temperature); err != nil {
+	if err := tx.Create(temperature).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	if err := s.CreateTransparency(transparency); err != nil {
+	if err := tx.Create(transparency).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -216,14 +219,14 @@ func (s *Storage) InitSensorGroups(group *Group, sensors []*Sensor) error {
 		return tx.Error
 	}
 
-	if err := s.CreateGroup(group); err != nil {
+	if err := tx.Create(group).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
 
 	for _, sensor := range sensors {
 		sensor.GroupId = uint64(group.ID)
-		if err := s.CreateSensor(sensor); err != nil {
+		if err := tx.Create(sensor).Error; err != nil {
 			tx.Rollback()
 			return err
 		}
@@ -284,21 +287,23 @@ func (s *Storage) getTemperatureByRegion(v uint8, opts ...CoordinateOption) (flo
 		return 0, errors.New("bad request")
 	}
 
-	var t float64
-	tx := s.db.Table(SensorTable).
-		Select(exp + "(" + TemperatureTable + ".temperature) as average").
-		Joins("LEFT JOIN " + TemperatureTable + " ON " + TemperatureTable + ".sensor_id = " + SensorTable + ".id")
+	var t sql.NullFloat64
+	tx := s.db.Table(TemperatureTable).
+		Select(exp + "(" + TemperatureTable + ".temperature) as res").
+		Joins("LEFT JOIN " + SensorTable + " ON " + TemperatureTable + ".sensor_id = " + SensorTable + ".id")
 
 	for _, opt := range opts {
 		opt(tx)
 	}
 
-	res := tx.Find(&t)
-	if res.Error != nil {
-		return 0, res.Error
+	err := tx.Row().Scan(&t)
+	if err != nil {
+		return 0, err
+	} else if !t.Valid {
+		return 0, ErrNoSensorsInArea
 	}
 
-	return t, nil
+	return t.Float64, nil
 }
 
 func connectToDb(options *Options) (*gorm.DB, error) {
