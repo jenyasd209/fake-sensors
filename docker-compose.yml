@@ -29,6 +29,11 @@ services:
       - ./postgres_data:/var/lib/postgresql/data
     networks:
       - internal
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER}'" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   sensors:
     container_name: fake-sensors
@@ -47,13 +52,15 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
-      REDIS_ADDRESS: ${REDIS_ADDRESS}
+      REDIS_ADDRESS: ${REDIS_HOST}:${REDIS_PORT}
       SENSOR_PORT: ${SENSOR_PORT}
     networks:
       - internal
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
 volumes:
   postgres_data:
