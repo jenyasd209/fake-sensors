@@ -1,8 +1,10 @@
 package routes
 
 import (
-	"github.com/gin-gonic/gin"
+	_ "github.com/jenyasd209/fake-sensors/src/api/doc"
 	"github.com/jenyasd209/fake-sensors/src/storage"
+
+	"github.com/gin-gonic/gin"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )

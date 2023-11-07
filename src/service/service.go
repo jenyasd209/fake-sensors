@@ -20,7 +20,7 @@ func NewService() (*Service, error) {
 		storage.WithDbPassword(os.Getenv("POSTGRES_PASSWORD")),
 		storage.WithDbPort(os.Getenv("POSTGRES_PORT")),
 		storage.WithDbHost(os.Getenv("POSTGRES_HOST")),
-		storage.WithDbName(os.Getenv("POSTGRES_NAME")),
+		storage.WithDbName(os.Getenv("POSTGRES_DB")),
 		storage.WithRedisAddress(os.Getenv("REDIS_ADDRESS")),
 	)
 	if err != nil {
