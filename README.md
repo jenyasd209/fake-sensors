@@ -30,12 +30,13 @@ SENSOR_PORT=8080
 ## Run
 
 ```shell
-docker-compose build --no-cache && docker-compose --env-file .env up
+docker-compose --env-file .env up
 ```
 
 ### Rebuild
+
 ```shell
-docker-compose --env-file .env up --build --force-recreate
+docker-compose --env-file .env up --build
 ```
 
 ## After run
