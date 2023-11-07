@@ -25,11 +25,16 @@ const (
 	defaultFishListLength = 10
 	defaultMaxFishCount   = 10
 
-	defaultTransparency = 10
-
 	minTemperature = -273.17
 	maxTemperature = 56.7
 
+	defaultMinX = -1000.0
+	defaultMaxX = 1000.0
+
+	defaultMinY = -1000.0
+	defaultMaxY = 1000.0
+
+	defaultMinZ = -1000.0
 	defaultMaxZ = 1000.0
 
 	temperatureSum               = (minTemperature - maxTemperature) * -1
@@ -181,9 +186,9 @@ func (g *Generator) generateSensors() []*storage.Sensor {
 		sensors = append(sensors, &storage.Sensor{
 			Model:          gorm.Model{},
 			IndexInGroup:   uint64(i),
-			X:              random.Float64(),
-			Y:              random.Float64(),
-			Z:              random.Float64(),
+			X:              randomPoint(defaultMinX, defaultMaxX),
+			Y:              randomPoint(defaultMinY, defaultMaxY),
+			Z:              randomPoint(defaultMinZ, defaultMaxZ),
 			DataOutputRate: time.Second * time.Duration(dataOutputRate),
 		})
 	}
@@ -326,4 +331,12 @@ func randomTransparency(nearestT uint8) uint8 {
 
 	t := int(min) + random.Intn(int(max-min))
 	return uint8(t)
+}
+
+func randomPoint(min, max float64) float64 {
+	if min > max {
+		min, max = max, min
+	}
+
+	return min + random.Float64()*(max-min)
 }
