@@ -7,7 +7,7 @@ services:
         condition: on-failure
         max_attempts: 1
     ports:
-      - "${REDIS_PORT}:6379"
+      - "${REDIS_PORT}:6379" # map custom port for host
     networks:
       - internal
     depends_on:
@@ -24,7 +24,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "${POSTGRES_PORT}:5432" # map custom port for host
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     networks:
@@ -45,14 +45,14 @@ services:
         condition: on-failure
         max_attempts: 3
     ports:
-      - "${SENSOR_PORT}:8080"
+      - "${SENSOR_PORT}:8080" # map custom port for host
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      REDIS_ADDRESS: ${REDIS_HOST}:${REDIS_PORT}
+      POSTGRES_PORT: 5432 # use postgres default port inside the created network. It doesn't conflict with host
+      REDIS_ADDRESS: ${REDIS_HOST}:6379 # use redis default port inside the created network. It doesn't conflict with host
       SENSOR_PORT: ${SENSOR_PORT}
     networks:
       - internal
