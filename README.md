@@ -36,7 +36,7 @@ docker-compose --env-file .env up
 ### Rebuild
 
 ```shell
-docker-compose --env-file .env up --build
+docker-compose --env-file .env up --build --force-recreate
 ```
 
 ## After run
