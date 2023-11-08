@@ -44,9 +44,9 @@ const (
 
 var (
 	greekLetters = []string{
-		"Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta",
-		"Theta", "Iota", "Kappa", "Lambda", "Mu", "Nu", "Xi", "Omicron",
-		"Pi", "Rho", "Sigma", "Tau", "Upsilon", "Phi", "Chi", "Psi", "Omega",
+		"alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta",
+		"theta", "iota", "kappa", "lambda", "mu", "nu", "xi", "omicron",
+		"pi", "rho", "sigma", "tau", "upsilon", "phi", "chi", "psi", "omega",
 	}
 
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -122,7 +122,7 @@ func (g *Generator) Start(ctx context.Context) error {
 	}
 
 	if len(groups) == 0 {
-		g.generateGroups()
+		g.generateSensorGroups()
 	}
 
 	err = g.prepareSensors()
@@ -151,7 +151,7 @@ func (g *Generator) prepareSensors() error {
 	return nil
 }
 
-func (g *Generator) generateGroups() {
+func (g *Generator) generateSensorGroups() {
 	letters := shuffleArray(greekLetters)
 
 	wg := sync.WaitGroup{}
@@ -168,7 +168,7 @@ func (g *Generator) generateGroups() {
 
 			err := g.storage.InitSensorGroups(&storage.Group{Name: l}, g.generateSensors())
 			if err != nil {
-				log.Printf("cannot save %s group and sensors for this group\n", l)
+				log.Printf("cannot save %s group and sensors for this group: %s\n", l, err)
 				return
 			}
 		}(letters[i])
@@ -220,12 +220,12 @@ func (g *Generator) regenerateData(ctx context.Context) {
 				transparency,
 			)
 			if err != nil {
-				log.Printf("cannot save temperature for %d sensor", n.sensor.ID)
+				log.Printf("cannot save temperature for %d sensor: %s\n", n.sensor.ID, err)
 				continue
 			}
 
 			n.currentTransparency = transparency.Transparency
-			n.previousUpdate = transparency.CreatedAt
+			n.previousUpdate = time.Now()
 		}
 	}
 }
@@ -286,7 +286,7 @@ func (g *Generator) newRandomFishList(sensorId uint64, count int) []*storage.Fis
 		fishList[i] = &storage.Fish{
 			SensorId: sensorId,
 			Name:     g.rules.fishNames[fishIndex],
-			Count:    uint64(random.Intn(defaultMaxFishCount)),
+			Count:    uint64(random.Intn(defaultMaxFishCount-1) + 1),
 		}
 
 		usedIndex[fishIndex] = struct{}{}
