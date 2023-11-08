@@ -11,7 +11,7 @@ func DefaultOptions() *Options {
 		dbHost:       "0.0.0.0",
 		dbUser:       "postgres",
 		dbPassword:   "pswd",
-		dbName:       "sensors",
+		dbName:       "sensor",
 		dbPort:       "5432",
 	}
 }

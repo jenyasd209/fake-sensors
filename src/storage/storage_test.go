@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+// TODO: tests are broken now
+
 type testSensorGroup struct {
 	group   *Group
 	sensors []*Sensor
@@ -69,8 +71,8 @@ type StorageTestSuite struct {
 
 func (s *StorageTestSuite) SetupSuite() {
 	storage, err := connectToTestDb()
-	s.NoError(err, err)
-	s.NotNil(s)
+	s.Require().NoError(err, err)
+	s.Require().NotNil(s)
 
 	s.storage = storage
 	s.testSensorGroups = testSensorGroups
@@ -151,13 +153,13 @@ func (s *StorageTestSuite) TestGetSpecies() {
 	}
 
 	s.T().Run("GetAllSpecies", func(t *testing.T) {
-		species, err := s.storage.GetSpecies(group.Name, 0)
+		species, err := s.storage.GetCurrentSpecies(group.Name, 0)
 		s.Require().NoError(err, err)
 		s.Equal(len(fishes), len(species))
 	})
 
 	s.T().Run("GetNSpecies", func(t *testing.T) {
-		species, err := s.storage.GetSpecies(group.Name, 1)
+		species, err := s.storage.GetCurrentSpecies(group.Name, 1)
 		s.Require().NoError(err, err)
 		s.Equal(1, len(species))
 	})
@@ -183,7 +185,7 @@ func (s *StorageTestSuite) TestGetSpecies() {
 		err = s.storage.CreateFish(fish)
 		s.Require().NoError(err, err)
 
-		species, err := s.storage.GetSpecies(group.Name, 0, WithCreatedFrom(from), WithCreatedTill(till))
+		species, err := s.storage.GetCurrentSpecies(group.Name, 0, WithCreatedFrom(from), WithCreatedTill(till))
 		s.Require().NoError(err, err)
 		s.Require().Equal(1, len(species))
 		assertFish(t, expFish, species[0])

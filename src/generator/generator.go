@@ -212,6 +212,7 @@ func (g *Generator) regenerateData(ctx context.Context) {
 				Transparency: randomTransparency(n.nearestTransparency),
 			}
 			err = g.storage.UpdateSensorData(
+				n.sensor,
 				g.newRandomFishList(uint64(n.sensor.ID), defaultFishListLength),
 				&storage.Temperature{
 					SensorId:    uint64(n.sensor.ID),

@@ -12,6 +12,9 @@ const (
 	SensorTable       = "sensors"
 	TemperatureTable  = "temperatures"
 	TransparencyTable = "transparencies"
+
+	CurrentStatisticTable  = "current_statistics"
+	CurrentSensorFishTable = "current_sensor_fishes"
 )
 
 type Fish struct {
@@ -51,4 +54,20 @@ type Transparency struct {
 
 	SensorId     uint64
 	Transparency uint8
+}
+
+type CurrentStatistic struct {
+	gorm.Model
+
+	GroupId        uint
+	SensorId       uint
+	TransparencyId uint
+	TemperatureId  uint
+}
+
+type CurrentSensorFish struct {
+	gorm.Model
+
+	SensorId uint
+	FishId   uint
 }

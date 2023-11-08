@@ -48,7 +48,7 @@ func NewStorage(opts ...Option) (*Storage, error) {
 		}
 	}()
 
-	err = db.AutoMigrate(Fish{}, Group{}, Sensor{}, Transparency{}, Temperature{})
+	err = db.AutoMigrate(Fish{}, Group{}, Sensor{}, Transparency{}, Temperature{}, CurrentStatistic{}, CurrentSensorFish{})
 	if err != nil {
 		return nil, err
 	}
@@ -104,23 +104,25 @@ func (s *Storage) GetAllSensors() ([]*Sensor, error) {
 	return sensors, nil
 }
 
-func (s *Storage) GetSpecies(group string, limit int, opts ...ConditionOption) ([]*Fish, error) {
-	var fishes []*Fish
-
-	tx := s.db.
-		Select(FishTable+".*").
+func (s *Storage) GetCurrentSpecies(group string, limit int, opts ...ConditionOption) ([]*Fish, error) {
+	resField := "count"
+	tx := s.db.Table(CurrentSensorFishTable).
+		Select(FishTable+".name, SUM("+FishTable+".count) as "+resField).
+		Joins("LEFT JOIN "+FishTable+" ON "+CurrentSensorFishTable+".fish_id = "+FishTable+".id").
 		Joins("LEFT JOIN "+SensorTable+" ON "+FishTable+".sensor_id = "+SensorTable+".id").
 		Joins("LEFT JOIN "+GroupTable+" ON "+SensorTable+".group_id = "+GroupTable+".id").
-		Where(GroupTable+".name = ?", group)
+		Where(GroupTable+".name = ?", group).
+		Group(FishTable + ".name")
 
 	for _, opt := range opts {
 		opt(FishTable, tx)
 	}
 
 	if limit > 0 {
-		tx.Limit(limit)
+		tx.Order(resField + " desc").Limit(limit)
 	}
 
+	var fishes []*Fish
 	if res := tx.Find(&fishes); res.Error != nil {
 		return nil, res.Error
 	}
@@ -186,32 +188,53 @@ func (s *Storage) CreateFish(fish *Fish) error {
 	return s.db.Create(fish).Error
 }
 
-func (s *Storage) UpdateSensorData(fishes []*Fish, temperature *Temperature, transparency *Transparency) error {
+func (s *Storage) UpdateSensorData(sensor *Sensor, fishes []*Fish, temperature *Temperature, transparency *Transparency) error {
 	tx := s.db.Begin()
 	if tx.Error != nil {
 		return tx.Error
 	}
 
-	created := time.Now()
-	for _, fish := range fishes {
-		fish.CreatedAt = created
-		fish.UpdatedAt = created
-		if err := tx.Create(fish).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
+	if err := tx.Create(fishes).Error; err != nil {
+		tx.Rollback()
+		return err
 	}
 
-	temperature.CreatedAt = created
-	temperature.UpdatedAt = created
+	csfs := make([]*CurrentSensorFish, 0, len(fishes))
+	for _, fish := range fishes {
+		csfs = append(csfs, &CurrentSensorFish{
+			SensorId: sensor.ID,
+			FishId:   fish.ID,
+		})
+	}
+
+	if err := tx.Exec("DELETE FROM "+CurrentSensorFishTable+" WHERE sensor_id = ?", sensor.ID).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Create(csfs).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	if err := tx.Create(temperature).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	transparency.CreatedAt = created
-	transparency.UpdatedAt = created
 	if err := tx.Create(transparency).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	statistic := &CurrentStatistic{
+		GroupId:        uint(sensor.GroupId),
+		SensorId:       sensor.ID,
+		TransparencyId: transparency.ID,
+		TemperatureId:  temperature.ID,
+	}
+
+	if err := tx.Where("sensor_id = ?", sensor.ID).FirstOrCreate(statistic).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -226,11 +249,6 @@ func (s *Storage) InitSensorGroups(group *Group, sensors []*Sensor) error {
 		return tx.Error
 	}
 
-	created := time.Now()
-
-	group.CreatedAt = created
-	group.UpdatedAt = created
-
 	if err := tx.Create(group).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -238,9 +256,6 @@ func (s *Storage) InitSensorGroups(group *Group, sensors []*Sensor) error {
 
 	for _, sensor := range sensors {
 		sensor.GroupId = uint64(group.ID)
-		sensor.CreatedAt = created
-		sensor.UpdatedAt = created
-
 		if err := tx.Create(sensor).Error; err != nil {
 			tx.Rollback()
 			return err
@@ -275,19 +290,23 @@ func (s *Storage) getAvg(ctx context.Context, group, key, table, field string) (
 }
 
 func (s *Storage) getAvgFromDb(group, table, field string) (float64, error) {
-	var average float64
-	res := s.db.Table(table).
-		Select("AVG("+table+"."+field+") AS average").
-		Joins("LEFT JOIN "+SensorTable+" ON "+table+".sensor_id = "+SensorTable+".id").
-		Joins("LEFT JOIN "+GroupTable+" ON "+SensorTable+".group_id = "+GroupTable+".id").
+	var avg sql.NullFloat64
+	res := s.db.Table(CurrentStatisticTable).
+		Select("AVG("+table+"."+field+")").
+		Joins("LEFT JOIN "+table+" ON "+CurrentStatisticTable+"."+field+"_id = "+table+".id").
+		Joins("LEFT JOIN "+GroupTable+" ON "+CurrentStatisticTable+".group_id = "+GroupTable+".id").
 		Where(GroupTable+".name = ?", group).
-		Pluck("AVG(value)", &average)
+		Pluck("AVG(value)", &avg)
 
 	if res.Error != nil {
 		return 0, res.Error
 	}
 
-	return average, nil
+	if !avg.Valid {
+		return 0, errors.New("average " + field + " for " + group + " not found")
+	}
+
+	return avg.Float64, nil
 }
 
 func (s *Storage) getTemperatureByRegion(v uint8, opts ...CoordinateOption) (float64, error) {
@@ -301,9 +320,10 @@ func (s *Storage) getTemperatureByRegion(v uint8, opts ...CoordinateOption) (flo
 	}
 
 	var t sql.NullFloat64
-	tx := s.db.Table(TemperatureTable).
+	tx := s.db.Table(CurrentStatisticTable).
 		Select(exp + "(" + TemperatureTable + ".temperature) as res").
-		Joins("LEFT JOIN " + SensorTable + " ON " + TemperatureTable + ".sensor_id = " + SensorTable + ".id")
+		Joins("LEFT JOIN " + TemperatureTable + " ON " + CurrentStatisticTable + ".temperature_id = " + TemperatureTable + ".id").
+		Joins("LEFT JOIN " + SensorTable + " ON " + CurrentStatisticTable + ".sensor_id = " + SensorTable + ".id")
 
 	for _, opt := range opts {
 		opt(tx)

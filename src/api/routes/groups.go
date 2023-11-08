@@ -168,7 +168,7 @@ func (r *Router) GetGroupTopSpecies(context *gin.Context) {
 }
 
 func getSpecies(storage *storage.Storage, groupName string, top int, opts ...storage.ConditionOption) ([]*Species, error) {
-	fishesRecords, err := storage.GetSpecies(groupName, top, opts...)
+	fishesRecords, err := storage.GetCurrentSpecies(groupName, top, opts...)
 	if err != nil {
 		return nil, err
 	}
