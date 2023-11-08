@@ -12,6 +12,4 @@ WORKDIR /app
 
 COPY --from=builder /app/sensor /app/sensor
 
-EXPOSE 8080
-
 CMD ["./sensor"]
