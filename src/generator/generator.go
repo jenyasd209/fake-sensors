@@ -19,8 +19,8 @@ const (
 	defaultMinSensorsCount = 2
 	defaultMaxSensorsCount = 10
 
-	defaultMinDataOutputRate = 10
-	defaultMaxDataOutputRate = 20
+	defaultMinDataOutputRate = 120
+	defaultMaxDataOutputRate = 1200
 
 	defaultFishListLength = 10
 	defaultMaxFishCount   = 10
