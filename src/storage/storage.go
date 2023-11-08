@@ -158,11 +158,11 @@ func (s *Storage) GetSensorAvgTemperature(groupName string, indexInGroup int, co
 }
 
 func (s *Storage) GetAvgTemperature(ctx context.Context, group string) (float64, error) {
-	return s.getCachedAvg(ctx, group, temperatureKey, TemperatureTable, "temperature")
+	return s.getAvg(ctx, group, temperatureKey, TemperatureTable, "temperature")
 }
 
 func (s *Storage) GetAvgTransparency(ctx context.Context, group string) (uint8, error) {
-	avg, err := s.getCachedAvg(ctx, group, transparencyKey, TransparencyTable, "transparency")
+	avg, err := s.getAvg(ctx, group, transparencyKey, TransparencyTable, "transparency")
 	return uint8(avg), err
 }
 
@@ -192,18 +192,25 @@ func (s *Storage) UpdateSensorData(fishes []*Fish, temperature *Temperature, tra
 		return tx.Error
 	}
 
+	created := time.Now()
 	for _, fish := range fishes {
+		fish.CreatedAt = created
+		fish.UpdatedAt = created
 		if err := tx.Create(fish).Error; err != nil {
 			tx.Rollback()
 			return err
 		}
 	}
 
+	temperature.CreatedAt = created
+	temperature.UpdatedAt = created
 	if err := tx.Create(temperature).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
 
+	transparency.CreatedAt = created
+	transparency.UpdatedAt = created
 	if err := tx.Create(transparency).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -219,6 +226,11 @@ func (s *Storage) InitSensorGroups(group *Group, sensors []*Sensor) error {
 		return tx.Error
 	}
 
+	created := time.Now()
+
+	group.CreatedAt = created
+	group.UpdatedAt = created
+
 	if err := tx.Create(group).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -226,6 +238,9 @@ func (s *Storage) InitSensorGroups(group *Group, sensors []*Sensor) error {
 
 	for _, sensor := range sensors {
 		sensor.GroupId = uint64(group.ID)
+		sensor.CreatedAt = created
+		sensor.UpdatedAt = created
+
 		if err := tx.Create(sensor).Error; err != nil {
 			tx.Rollback()
 			return err
@@ -236,32 +251,30 @@ func (s *Storage) InitSensorGroups(group *Group, sensors []*Sensor) error {
 	return tx.Error
 }
 
-func (s *Storage) getCachedAvg(ctx context.Context, group, key, table, field string) (float64, error) {
-	value := float64(0)
+func (s *Storage) getAvg(ctx context.Context, group, key, table, field string) (float64, error) {
+	redisKey := key + group
 
-	cachedValue, err := s.redis.Get(ctx, key).Result()
-	switch {
-	case err == redis.Nil:
-		value, err = s.getAvg(group, table, field)
-		if err != nil {
-			return 0, err
-		}
-
-		err = s.redis.Set(ctx, key, value, 10*time.Second).Err()
-		if err != nil {
-			log.Printf("Error setting value by key %s: %s", key, err)
-		}
-
-		return value, nil
-	case err != nil:
-		log.Printf("Error getting value by key %s: %s", key, err)
-		return s.getAvg(group, table, field)
-	default:
-		return strconv.ParseFloat(cachedValue, 64)
+	res := s.redis.Get(ctx, redisKey)
+	if res.Err() != nil && res.Err() != redis.Nil {
+		log.Printf("Error getting value by key %s: %s", key, res.Err())
+	} else if res.Err() == nil {
+		return strconv.ParseFloat(res.Val(), 64)
 	}
+
+	value, err := s.getAvgFromDb(group, table, field)
+	if err != nil {
+		return 0, err
+	}
+
+	err = s.redis.Set(ctx, redisKey, value, 10*time.Second).Err()
+	if err != nil {
+		log.Printf("Error setting value by key %s: %s", key, err)
+	}
+
+	return value, nil
 }
 
-func (s *Storage) getAvg(group, table, field string) (float64, error) {
+func (s *Storage) getAvgFromDb(group, table, field string) (float64, error) {
 	var average float64
 	res := s.db.Table(table).
 		Select("AVG("+table+"."+field+") AS average").
